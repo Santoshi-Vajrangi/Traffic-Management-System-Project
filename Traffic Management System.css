@@ -1,0 +1,404 @@
+#include <iostream>
+#include <queue>
+#include <string>
+#include <fstream>
+#include <ctime>
+#include <vector>
+#include <limits>
+#define HEADER "*****\t\t\t    **********\n\n\t   TRAFFIC MANAGEMENT SYSTEM\t   \n\n*****\t\t\t    **********\n\n"
+using namespace std;
+
+// Forward declaration for the Authorisation class
+
+
+class Authorisation {
+public:
+    static void auth() {
+        int c;
+    l1: cout << HEADER << "Authorise yourself to start simulation -\n" << "Menu :\n\n1.Register\n2.Login\n3.Exit\n" << endl;
+        cout << "Enter choice : ";
+          // Exception handling for invalid input
+        try {
+            cin >> c;
+            if (cin.fail()) {
+                cin.clear(); // Clear the error state of cin
+                cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Ignore remaining characters in the input buffer
+                throw invalid_argument("Invalid input! Please enter a valid integer choice.");
+            }
+        }
+        catch (const exception& ex) {
+            cerr << ex.what() << endl;
+            system("pause");
+            system("cls");
+            goto l1;
+        }
+        cout << endl;
+        if (c == 1) {
+            cout << "ENTER DETAILS TO REGISTER YOURSELF - " << endl << endl;
+            string user, pass;
+        lu: cout << "Enter username : ";
+            cin >> user;
+            // Skip the database check for random registration
+            cout << "Enter password : ";
+            cin >> pass;
+            // Skip saving to the database for random registration
+            cout << "Registered Successfully!" << endl << endl;
+            system("pause");
+            system("cls");
+            goto l1;
+        } else if (c == 2) {
+            cout << "ENTER DETAILS TO LOGIN - " << endl;
+            string user, pass, uf, pf;
+            cout << "Enter username : ";
+            cin >> user;
+            cout << "Enter password : ";
+            cin >> pass;
+            // Skip the database check and directly consider it as a successful login for random registration
+            cout << "\nWelcome " << user << ", Login Successful!" << endl << endl;
+            system("pause");
+            system("cls");
+            return;
+        } else if (c == 3) {
+            system("cls");
+            cout << "Thanks You!\n";
+            _Exit(10);
+        } else {
+            cout << "Enter a valid choice !" << endl;
+            system("pause");
+            system("cls");
+            goto l1;
+        }
+    }
+};
+
+class Lane {
+public:
+    virtual void updateTraffic() = 0;
+
+public:
+    // Public interface for updating traffic data
+    void updateTrafficData() {
+        updateTraffic();
+    }
+};
+
+class Alerts {
+public:
+    int it;
+    void checkd() {
+        cout << "Enter 1: If NO problem in the lane\n";
+        cout << "Enter 2: If any problem in the lane\n";
+        cout << "Choose option :";
+        cin >> it;
+    }
+    void get(int wi) { // Corrected the function argument to be passed by reference
+        cout.width(wi);
+        cout << "Enter 1: If problem solved\n";
+        cout.width(wi);
+        cout << "Enter 2: If problem still occurs\n";
+        cin >> wi; // Corrected the variable to be assigned
+    }
+};
+
+class vehicle {
+    int id;
+    int emergency;
+    int speed;
+    static int i;
+public:
+    vehicle(int e = 0) {
+        id = i++;
+        emergency = e;
+        speed = 10 + rand() % 51; // Vehicles with speed 10 - 60
+    }
+    int getId() {
+        return id;
+    }
+    bool isEmergency() {
+        return emergency ? true : false;
+    }
+    int getSpeed() {
+        return speed;
+    }
+};
+int vehicle::i = 0;
+
+class Input_sensor : public Alerts {
+    int* A;
+public:
+    Input_sensor() {
+        A = new int[2];
+    }
+    int* getTraffic() {
+        int tv, ev;
+        cout << "Total new vehicles : ";
+        cin >> tv;
+        cout << "Emergency vehicles : ";
+        cin >> ev;
+        checkd();
+        A[0] = tv;
+        A[1] = ev;
+        return A;
+    }
+};
+
+class traffic_light {
+public:
+    string color;
+    // Private constructor to prevent direct instantiation
+    traffic_light() {
+        color = "red";
+    }
+public:
+    // Static function to get the singleton instance
+    static traffic_light& getInstance() {
+        static traffic_light instance; // Guaranteed to be initialized only once
+        return instance;
+    }
+    void changeLight(string c) {
+        color = c;
+    }
+    string getColor() const {
+        return color;
+    }
+};
+
+class traffic_lane : public Lane {
+public:
+    // Private members for traffic_lane class
+    queue<vehicle> qv;
+    int laneNo;
+    int speedLimit;
+    int currentVehicles;
+    int currentEV;
+    string color;
+    Input_sensor inputSensor; // Composed Input_sensor object
+    traffic_light tLight;     // Composed traffic_light object
+
+    // Private member function for updating traffic (Encapsulated within the class)
+    void updateTraffic() override {
+        int* A = inputSensor.getTraffic();
+        qv = queue<vehicle>(); // To empty the queue
+        for (int i = 0; i < A[1]; i++) {
+            vehicle* nv = new vehicle(1);
+            qv.push(*nv); // Push Emergency Vehicles
+        }
+        for (int i = 0; i < A[0]; i++) {
+            vehicle* nv = new vehicle(0);
+            qv.push(*nv); // Push Other Vehicles
+        }
+        currentVehicles = A[0];
+        currentEV = A[1];
+    }
+
+public:
+    // Constructor for traffic_lane class
+    traffic_lane(int ln, int sl) : laneNo(ln), speedLimit(sl), currentVehicles(0), currentEV(0) {}
+
+    // Getter functions for encapsulated data
+    int getCurrentVehicles() const {
+        return currentVehicles;
+    }
+
+    int getCurrentEV() const {
+        return currentEV;
+    }
+
+    // Public member function to change traffic light color
+    void changeLight(string c) {
+        tLight.changeLight(c);
+    }
+    bool operator<(const traffic_lane& other) const {
+        // Define the logic for comparing traffic lanes here
+        // For example, compare based on lane number or some other criteria
+        // You can use the color member for comparison if you prefer
+        // Replace 'laneNo' with 'color' in the comparison below if you want to compare based on color.
+        return laneNo < other.laneNo;
+    }
+};
+
+class Outgoing {
+    priority_queue<traffic_lane> pql;
+public:
+    Outgoing(traffic_lane l1, traffic_lane l2, traffic_lane l3, traffic_lane l4) {
+        pql.push(l1);
+        pql.push(l2);
+        pql.push(l3);
+        pql.push(l4);
+    }
+    void printDetail(traffic_lane dl) {
+        dl.tLight.changeLight("Green");
+            cout << "\tLane No-1 " << "\t\t\t\tLane NO-2 " << "\t\t\t\tLane NO-3 " << "\t\t\t\tLane NO-4" << "\n";
+    if (dl.laneNo == 1) {
+        cout << "\tLane turned " << dl.tLight.color << "\t\t\t\tLane turned Red" << "\t\t\t\tLane turned Red" << "\t\t\t\tLane turned Red" << "\n";
+    } else if (dl.laneNo == 2) {
+        cout << "\tLane turned Red" << "\t\t\t\tLane turned " << dl.tLight.color << "\t\t\t\tLane turned Red" << "\t\t\t\tLane turned Red" << "\n";
+    } else if (dl.laneNo == 3) {
+        cout << "\tLane turned Red" << "\t\t\t\tLane turned Red" << "\t\t\t\tLane turned " << dl.tLight.color << "\t\t\t\tLane turned Red\n";
+    } else if (dl.laneNo == 4) {
+        cout << "\tLane turned Red" << "\t\t\t\t        Lane turned " << dl.tLight.color << "\t\t\t\tLane turned " << dl.tLight.color << "\n";
+    }
+
+    dl.inputSensor.checkd();
+    if (dl.inputSensor.it == 2) {
+        dl.inputSensor.get(0);
+        if (dl.inputSensor.it == 2) {
+            pql.push(dl);
+            system("pause");
+        } else {
+            changeDetail(dl, 0);
+        }
+    } else if (dl.inputSensor.it == 2) {
+        dl.inputSensor.get(75);
+        if (dl.inputSensor.it == 2) {
+            pql.push(dl);
+            system("pause");
+        } else {
+            changeDetail(dl, 40);
+        }
+    } else if (dl.inputSensor.it == 2) {
+        dl.inputSensor.get(125);
+        if (dl.inputSensor.it == 2) {
+            pql.push(dl);
+            system("pause");
+        } else {
+            changeDetail(dl, 90);
+        }
+    } else if (dl.inputSensor.it == 2) {
+        dl.inputSensor.get(175);
+        if (dl.inputSensor.it == 2) {
+            pql.push(dl);
+            system("pause");
+        } else {
+            changeDetail(dl, 140);
+        }
+    }
+}
+
+void changeDetail(traffic_lane cl, int wi) {
+    cout.width(wi + 20);
+    cout << " Total Vehicles in Lane : " << cl.getCurrentVehicles() << endl;
+    cout.width(wi + 17);
+    cout << " Emergency Vehicles : " << cl.getCurrentEV() << endl;
+    int vehToExit = 30;
+    while (vehToExit > 0 && cl.getCurrentVehicles() > 0) {
+        vehicle cv = cl.qv.front();
+        if (cv.isEmergency()) {
+            cl.qv.pop();
+            cl.currentVehicles--;
+            cl.currentEV--;
+        } else {
+            if (cv.getSpeed() > cl.speedLimit) {
+                ofstream of("OverSpeeding.txt", ios::app);
+                of << "E-challan generated for Vehicle with ID : " << cv.getId() << " for violating the speed limit in lane " << cl.laneNo << endl;
+                of.close();
+            }
+            cl.qv.pop();
+            cl.currentVehicles--;
+        }
+        vehToExit--;
+    }
+    cout.width(wi);
+    cout << "Lane " << cl.laneNo << " vehicles started moving..." << endl;
+    cout.width(wi);
+    cl.changeLight("Red");
+    cout.width(wi);
+    cout << "Lane " << cl.laneNo << " light turned " << cl.color << endl;
+    cout.width(wi);
+    cout << "Lane " << cl.laneNo << " vehicles remaining : " << cl.getCurrentVehicles() << endl;
+    cout.width(wi + 17);
+    cout << " Emergency Vehicles : " << cl.getCurrentEV() << endl << endl;
+    system("pause");
+    if (cl.getCurrentVehicles() > 0) pql.push(cl);
+}
+
+void startTraffic() {
+    cout << "Started\n";
+    while (!pql.empty()) {
+        traffic_lane cl = pql.top();
+        pql.pop();
+        printDetail(cl);
+    }
+}
+};
+void printEChallan() {
+    ifstream iff("OverSpeeding.txt");
+    string s;
+    cout << "Generated E-challans are : " << endl;
+    while (getline(iff, s)) {
+        cout << s << endl;
+    }
+    cout << endl;
+    iff.close();
+}
+
+
+int main() {
+    // ...
+    Authorisation::auth(); // Call the static auth function using the class name
+
+
+    cout << "***********************************************" << endl << endl;
+    system("pause");
+    system("cls");
+
+    srand(time(0));
+
+    traffic_lane* lane1 = new traffic_lane(1, 50);
+    traffic_lane* lane2 = new traffic_lane(2, 45);
+    traffic_lane* lane3 = new traffic_lane(3, 40);
+    traffic_lane* lane4 = new traffic_lane(4, 45);
+
+    while (1) {
+        system("cls");
+        cout << HEADER;
+    la: cout << "Menu :\n\n1.Update Traffic\n2.Start simulation\n3.Display Generated Challans\n4.Logout\n" << endl;
+        cout << "Select option : ";
+        int c;
+        cin >> c;
+        if (c == 1) {
+            system("cls");
+            cout << HEADER;
+            cout << "\nInput Lane 1 data :\n";
+            lane1->updateTrafficData();
+            cout << "\nInput Lane 2 data :\n";
+            lane2->updateTrafficData();
+            cout << "\nInput Lane 3 data :\n";
+            lane3->updateTrafficData();
+            cout << "\nInput Lane 4 data :\n";
+            lane4->updateTrafficData();
+            cout << "Traffic data updated successfully!" << endl;
+            system("pause");
+        } else if (c == 2) {
+            system("cls");
+            cout << HEADER;
+            Outgoing op(*lane1, *lane2, *lane3, *lane4);
+            try {
+                op.startTraffic();
+            } catch (const exception& ex) {
+                cerr << "An exception occurred during traffic simulation: " << ex.what() << endl;
+                system("pause");
+            }
+        } else if (c == 3) {
+            system("cls");
+            cout << HEADER;
+            printEChallan();
+            system("pause");
+        } else if (c == 4) {
+            cout << "Logged Out Successfully!" << endl;
+            break;
+        } else {
+            cout << "Enter a valid option!" << endl;
+            system("pause");
+            system("cls");
+            goto la;
+        }
+    }
+
+    delete lane1;
+    delete lane2;
+    delete lane3;
+    delete lane4;
+
+    return 0;
+}
